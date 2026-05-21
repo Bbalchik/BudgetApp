@@ -1,0 +1,103 @@
+﻿.dashboard-container {
+    max-width: 600px;
+    margin: 0 auto;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.wallet-title, .history-title {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.transaction-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+}
+
+.form-input, .form-select {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+    .form-input:focus, .form-select:focus {
+        border-color: #000;
+    }
+
+.btn-submit {
+    background-color: #000;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+    .btn-submit:hover {
+        background-color: #333;
+    }
+
+.transaction-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
+}
+
+    .transaction-item:hover {
+        background-color: #fdfdfd;
+    }
+
+.item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.transaction-date {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.transaction-desc {
+    font-size: 1.1em;
+    color: #222;
+}
+
+.transaction-amount {
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.income {
+    color: #28a745;
+}
+
+.expense {
+    color: #dc3545;
+}
+
+.status-text {
+    color: #666;
+    font-style: italic;
+}
