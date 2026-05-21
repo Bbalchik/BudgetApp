@@ -4,9 +4,9 @@
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <PageTitle>Not found</PageTitle>
+        <PageTitle>Сторінку не знайдено</PageTitle>
         <LayoutView Layout="@typeof(Layout.MainLayout)">
-            <p role="alert">Сторінку не знайдено.</p>
+            <p role="alert">Сторінку не знайдено. Будь ласка, поверніться на <a href="/">головну</a>.</p>
         </LayoutView>
     </NotFound>
 </Router>

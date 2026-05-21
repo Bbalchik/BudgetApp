@@ -50,9 +50,12 @@
                         <strong class="transaction-desc">@t.Description</strong>
                         <span class="transaction-date">@t.Date.ToString("dd.MM.yyyy HH:mm")</span>
                     </div>
-                    <span class="transaction-amount @(t.Type == TransactionType.Income ? "income" : "expense")">
-                        @(t.Type == TransactionType.Income ? "+" : "-")@t.Amount ₴
-                    </span>
+                    <div class="actions">
+                        <span class="transaction-amount @(t.Type == TransactionType.Income ? "income" : "expense")">
+                            @(t.Type == TransactionType.Income ? "+" : "-")@t.Amount ₴
+                        </span>
+                        <button class="btn-delete" @onclick="() => DeleteTransaction(t.Id)" title="Видалити">🗑</button>
+                    </div>
                 </li>
             }
         </ul>
@@ -65,7 +68,7 @@
     private string newDescription = "";
     private decimal newAmount = 0;
     private TransactionType newType = TransactionType.Expense;
-    private string newCategory = "🛒 Продукти"; 
+    private string newCategory = "🛒 Продукти";
 
     private List<string> defaultCategories = new()
     {
@@ -101,7 +104,7 @@
             Amount = newAmount,
             Date = DateTime.Now,
             Type = newType,
-            Category = newCategory 
+            Category = newCategory
         };
 
         await BudgetService.AddTransactionAsync(t);
@@ -110,5 +113,11 @@
         newAmount = 0;
 
         await LoadData();
+    }
+
+    private async Task DeleteTransaction(Guid id)
+    {
+        await BudgetService.DeleteTransactionAsync(id);
+        await LoadData(); 
     }
 }

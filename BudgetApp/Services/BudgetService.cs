@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using BudgetApp.Models;
@@ -38,13 +39,22 @@ public class BudgetService : IBudgetService
         await SaveToFileAsync();
     }
 
+    public async Task DeleteTransactionAsync(Guid id)
+    {
+        var itemToRemove = _transactions.FirstOrDefault(t => t.Id == id);
+        if (itemToRemove != null)
+        {
+            _transactions.Remove(itemToRemove);
+            await SaveToFileAsync(); 
+        }
+    }
+
     private async Task SaveToFileAsync()
     {
         try
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(_transactions, options);
-
             await File.WriteAllTextAsync(_filePath, json);
         }
         catch (Exception ex)
