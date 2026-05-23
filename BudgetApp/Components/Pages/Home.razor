@@ -7,42 +7,59 @@
 <PageTitle>Бюджет - Головна</PageTitle>
 
 <div class="dashboard-container">
-    <h3 class="wallet-title">Мій гаманець</h3>
+    <div class="month-selector">
+        <button class="btn-icon" @onclick="PreviousMonth">◀</button>
+        <h3 class="current-month">@GetMonthName(selectedMonth) @selectedYear</h3>
+        <button class="btn-icon" @onclick="NextMonth">▶</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab @(activeTab == TransactionType.Expense ? "active expense-tab" : "")" 
+                @onclick="() => SetTab(TransactionType.Expense)">
+            Витрати
+        </button>
+        <button class="tab @(activeTab == TransactionType.Income ? "active income-tab" : "")" 
+                @onclick="() => SetTab(TransactionType.Income)">
+            Прибуток
+        </button>
+    </div>
+
+    <div class="stats-card">
+        <p>Усього за місяць:</p>
+        <h2 class="@(activeTab == TransactionType.Income ? "income" : "expense")">
+            @(activeTab == TransactionType.Income ? "+" : "-")@GetTotalAmount() ₴
+        </h2>
+    </div>
 
     <div class="transaction-form">
-        <input class="form-input" @bind="newDescription" placeholder="Що це було?" />
-
-        <select class="form-select" @bind="newType">
-            <option value="@TransactionType.Expense">Витрата</option>
-            <option value="@TransactionType.Income">Прибуток</option>
-        </select>
-
+        <input class="form-input" @bind="newDescription" placeholder="Назва (наприклад, Сільпо)" />
+        
         <select class="form-select" @bind="newCategory">
-            @foreach (var cat in defaultCategories)
+            @foreach (var cat in currentCategories)
             {
                 <option value="@cat">@cat</option>
             }
         </select>
 
         <input class="form-input" @bind="newAmount" type="number" placeholder="Сума (₴)" />
-
-        <button class="btn-submit" @onclick="AddTransaction">Додати запис</button>
+        
+        <button class="btn-submit" @onclick="AddTransaction">Додати</button>
     </div>
 
-    <h4 class="history-title">Історія транзакцій</h4>
+    <h4 class="history-title">Історія за @GetMonthName(selectedMonth)</h4>
 
     @if (transactions == null)
     {
         <p class="status-text">Завантаження...</p>
     }
-    else if (transactions.Count == 0)
+    else if (!FilteredTransactions.Any())
     {
-        <p class="status-text">Записів ще немає. Додайте свою першу транзакцію!</p>
+        <p class="status-text">У цьому місяці записів ще немає. Гуляємо! 🎉</p>
     }
     else
     {
         <ul class="transaction-list">
-            @foreach (var t in transactions)
+            @foreach (var t in FilteredTransactions)
             {
                 <li class="transaction-item">
                     <div class="item-info">
@@ -64,34 +81,67 @@
 
 @code {
     private List<Transaction> transactions = new();
+    
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+    private TransactionType activeTab = TransactionType.Expense;
 
     private string newDescription = "";
     private decimal newAmount = 0;
-    private TransactionType newType = TransactionType.Expense;
-    private string newCategory = "🛒 Продукти";
+    private string newCategory = "🛒 Продукти"; 
 
-    private List<string> defaultCategories = new()
-    {
-        "🛒 Продукти",
-        "🍽 Кафе та ресторани",
-        "🚕 Транспорт",
-        "💊 Аптеки",
-        "🎬 Розваги",
-        "🏠 Комуналка",
-        "💳 Перекази",
-        "💰 Зарплата",
-        "📦 Інше"
-    };
+    private List<string> expenseCategories = new() { "🛒 Продукти", "🍽 Кафе", "🚕 Транспорт", "💊 Аптеки", "🏠 Комуналка", "📦 Інше" };
+    private List<string> incomeCategories = new() { "💰 Зарплата", "💳 Переказ", "🎁 Подарунок", "📈 Відсотки", "📦 Інше" };
+    
+    private List<string> currentCategories => activeTab == TransactionType.Expense ? expenseCategories : incomeCategories;
+
+    private IEnumerable<Transaction> FilteredTransactions => transactions
+        .Where(t => t.Date.Month == selectedMonth && t.Date.Year == selectedYear && t.Type == activeTab)
+        .OrderByDescending(t => t.Date);
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+        UpdateDefaultCategory();
     }
 
     private async Task LoadData()
     {
         transactions = await BudgetService.GetTransactionsAsync();
-        transactions = transactions.OrderByDescending(t => t.Date).ToList();
+    }
+
+    private void SetTab(TransactionType type)
+    {
+        activeTab = type;
+        UpdateDefaultCategory();
+    }
+
+    private void UpdateDefaultCategory()
+    {
+        newCategory = currentCategories.First();
+    }
+
+    private void PreviousMonth()
+    {
+        if (selectedMonth == 1) { selectedMonth = 12; selectedYear--; }
+        else { selectedMonth--; }
+    }
+
+    private void NextMonth()
+    {
+        if (selectedMonth == 12) { selectedMonth = 1; selectedYear++; }
+        else { selectedMonth++; }
+    }
+
+    private decimal GetTotalAmount()
+    {
+        return FilteredTransactions.Sum(t => t.Amount);
+    }
+
+    private string GetMonthName(int month)
+    {
+        string[] months = { "Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень" };
+        return months[month - 1];
     }
 
     private async Task AddTransaction()
@@ -103,21 +153,21 @@
             Description = newDescription,
             Amount = newAmount,
             Date = DateTime.Now,
-            Type = newType,
+            Type = activeTab, 
             Category = newCategory
         };
 
         await BudgetService.AddTransactionAsync(t);
-
+        
         newDescription = "";
         newAmount = 0;
-
+        
         await LoadData();
     }
 
     private async Task DeleteTransaction(Guid id)
     {
         await BudgetService.DeleteTransactionAsync(id);
-        await LoadData(); 
+        await LoadData();
     }
 }
