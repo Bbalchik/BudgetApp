@@ -293,3 +293,102 @@
     cursor: pointer;
     padding: 5px;
 }
+
+.period-tabs {
+    display: flex;
+    background-color: #2c2c2e;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 25px;
+}
+
+.period-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    border: none;
+    background: none;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #8e8e93;
+    transition: all 0.2s ease;
+}
+
+    .period-tab.active {
+        background-color: #3a3a3c;
+        color: #ffffff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+.forecast-panel {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+}
+
+.forecast-item {
+    flex: 1;
+    background-color: #2c2c2e;
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.emoji-icon {
+    font-size: 1.5em;
+}
+
+.forecast-item small {
+    color: #8e8e93;
+    display: block;
+    font-size: 0.8em;
+    margin-bottom: 3px;
+}
+
+.forecast-item strong {
+    color: #fff;
+    font-size: 1em;
+}
+
+.donut-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+    margin-top: 10px;
+}
+
+.donut-chart {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+.donut-inner {
+    width: 120px;
+    height: 120px;
+    background-color: #2c2c2e;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+    .donut-inner span {
+        font-size: 1.4em;
+        font-weight: bold;
+        color: #fff;
+        margin-bottom: -5px;
+    }
+
+    .donut-inner small {
+        color: #8e8e93;
+        font-size: 0.8em;
+    }

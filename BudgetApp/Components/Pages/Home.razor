@@ -12,9 +12,15 @@
         <button class="icon-btn">←</button>
         <div class="header-titles">
             <h2>Статистика</h2>
-            <p class="date-range">01 @GetMonthName(selectedMonth). - @DateTime.DaysInMonth(selectedYear, selectedMonth) @GetMonthName(selectedMonth). @selectedYear <span class="calendar-icon">📅</span></p>
+            <p class="date-range">@GetPeriodText() <span class="calendar-icon">📅</span></p>
         </div>
         <button class="icon-btn">📚</button>
+    </div>
+
+    <div class="period-tabs">
+        <button class="period-tab @(selectedPeriod == Period.Day ? "active" : "")" @onclick="() => SetPeriod(Period.Day)">День</button>
+        <button class="period-tab @(selectedPeriod == Period.Week ? "active" : "")" @onclick="() => SetPeriod(Period.Week)">Тиж</button>
+        <button class="period-tab @(selectedPeriod == Period.Month ? "active" : "")" @onclick="() => SetPeriod(Period.Month)">Міс</button>
     </div>
 
     <div class="amount-header">
@@ -24,7 +30,7 @@
         <div class="currency-badge">UAH</div>
     </div>
 
-    <h2 class="main-amount" style="margin-bottom: 25px;">
+    <h2 class="main-amount" style="margin-bottom: 20px;">
         @(activeTab == TransactionType.Income ? "Надходження" : "Витрати")
     </h2>
 
@@ -37,6 +43,26 @@
                 @onclick="() => SetTab(TransactionType.Income)">
             Надходження
         </button>
+    </div>
+
+    <div class="forecast-panel">
+        <div class="forecast-item">
+            <span class="emoji-icon">⚖️</span>
+            <div>
+                <small>Співвідношення</small>
+                <strong>@GetRatio()</strong>
+            </div>
+        </div>
+        @if (selectedPeriod == Period.Month && activeTab == TransactionType.Expense)
+        {
+            <div class="forecast-item">
+                <span class="emoji-icon">🔮</span>
+                <div>
+                    <small>Прогноз на місяць</small>
+                    <strong>@GetForecast()</strong>
+                </div>
+            </div>
+        }
     </div>
 
     <div class="mono-summary">
@@ -61,6 +87,15 @@
     @if (FilteredTransactions.Any())
     {
         <div class="analytics-section">
+            <div class="donut-wrapper">
+                <div class="donut-chart" style="background: @GetChartGradient()">
+                    <div class="donut-inner">
+                        <span>@GetTotalAmount()</span>
+                        <small>UAH</small>
+                    </div>
+                </div>
+            </div>
+
             @{
                 var stats = GetCategoryStats();
                 var total = GetTotalAmount();
@@ -73,7 +108,7 @@
                 <div class="stat-item">
                     <div class="stat-header">
                         <span class="stat-category-name">@stat.Key</span>
-                        <span class="stat-category-sum">@stat.Value ₴</span>
+                        <span class="stat-category-sum">@stat.Value ₴ (@Math.Round(percent, 1)%)</span>
                     </div>
                     <div class="progress-bg">
                         <div class="progress-fill @(activeTab == TransactionType.Income ? "bg-income" : "bg-expense")"
@@ -121,21 +156,37 @@
 
 @code {
     private List<Transaction> transactions = new();
-    private int selectedMonth = DateTime.Now.Month;
-    private int selectedYear = DateTime.Now.Year;
+
+    private enum Period { Day, Week, Month }
+    private Period selectedPeriod = Period.Month;
     private TransactionType activeTab = TransactionType.Expense;
 
     private string newDescription = "";
     private decimal newAmount = 0;
-    private string newCategory = "🛒 Продукти";
+    private string newCategory = "🛒 Продукти харчування";
 
-    private List<string> expenseCategories = new() { "🛒 Продукти", "🍽 Кафе", "🚕 Транспорт", "💊 Аптеки", "🎬 Розваги", "🏠 Комуналка", "📦 Інше" };
-    private List<string> incomeCategories = new() { "💰 Зарплата", "💳 Перекази", "📦 Інше" };
+    private List<string> expenseCategories = new() { "🛒 Продукти харчування", "🏠 Комунальні послуги", "💊 Ліки", "🚕 Транспорт (пальне/квитки)", "📦 Інші товари" };
+    private List<string> incomeCategories = new() { "💰 Зарплата", "📈 Прибуток", "📦 Інше" };
     private List<string> currentCategories => activeTab == TransactionType.Expense ? expenseCategories : incomeCategories;
 
-    private IEnumerable<Transaction> FilteredTransactions => transactions
-        .Where(t => t.Date.Month == selectedMonth && t.Date.Year == selectedYear && t.Type == activeTab)
-        .OrderByDescending(t => t.Date);
+    private IEnumerable<Transaction> FilteredTransactions => transactions.Where(t =>
+    {
+        var today = DateTime.Now.Date;
+        bool dateMatch = false;
+
+        if (selectedPeriod == Period.Day)
+            dateMatch = t.Date.Date == today;
+        else if (selectedPeriod == Period.Week)
+        {
+            var currentDayOfWeek = (int)today.DayOfWeek == 0 ? 7 : (int)today.DayOfWeek;
+            var startOfWeek = today.AddDays(-(currentDayOfWeek - 1));
+            dateMatch = t.Date.Date >= startOfWeek && t.Date.Date <= startOfWeek.AddDays(6);
+        }
+        else if (selectedPeriod == Period.Month)
+            dateMatch = t.Date.Month == today.Month && t.Date.Year == today.Year;
+
+        return dateMatch && t.Type == activeTab;
+    }).OrderByDescending(t => t.Date);
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,6 +196,7 @@
 
     private async Task LoadData() { transactions = await BudgetService.GetTransactionsAsync(); }
 
+    private void SetPeriod(Period p) { selectedPeriod = p; }
     private void SetTab(TransactionType type) { activeTab = type; UpdateDefaultCategory(); }
     private void UpdateDefaultCategory() { newCategory = currentCategories.First(); }
     private decimal GetTotalAmount() { return FilteredTransactions.Sum(t => t.Amount); }
@@ -155,10 +207,73 @@
         return FilteredTransactions.GroupBy(t => t.Category).ToDictionary(g => g.Key, g => g.Sum(t => t.Amount)).OrderByDescending(kv => kv.Value).ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
+    private string GetPeriodText()
+    {
+        if (selectedPeriod == Period.Day) return "Сьогодні: " + DateTime.Now.ToString("dd.MM.yyyy");
+        if (selectedPeriod == Period.Week) return "Поточний тиждень";
+        return $"01 {GetMonthName(DateTime.Now.Month)}. - {DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month)} {GetMonthName(DateTime.Now.Month)}. {DateTime.Now.Year}";
+    }
+
     private string GetMonthName(int month)
     {
         string[] months = { "січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд" };
         return months[month - 1];
+    }
+
+    private string GetRatio()
+    {
+        var allInPeriod = transactions.Where(t => FilteredTransactions.Any(ft => ft.Id == t.Id) || (t.Type != activeTab && IsInCurrentPeriod(t.Date)));
+        var inc = allInPeriod.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
+        var exp = allInPeriod.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
+
+        if (inc == 0) return "Немає прибутку";
+        var ratio = (exp / inc) * 100;
+        return $"{Math.Round(ratio)}% від доходу";
+    }
+
+    private string GetForecast()
+    {
+        var total = GetTotalAmount();
+        var currentDay = DateTime.Now.Day;
+        var daysInMonth = DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month);
+        if (currentDay == 0 || total == 0) return "0 UAH";
+
+        var projected = (total / currentDay) * daysInMonth;
+        return $"~{Math.Round(projected)} UAH";
+    }
+
+    private bool IsInCurrentPeriod(DateTime date)
+    {
+        var today = DateTime.Now.Date;
+        if (selectedPeriod == Period.Day) return date.Date == today;
+        if (selectedPeriod == Period.Month) return date.Month == today.Month && date.Year == today.Year;
+        var currentDayOfWeek = (int)today.DayOfWeek == 0 ? 7 : (int)today.DayOfWeek;
+        var startOfWeek = today.AddDays(-(currentDayOfWeek - 1));
+        return date.Date >= startOfWeek && date.Date <= startOfWeek.AddDays(6);
+    }
+
+    private string GetChartGradient()
+    {
+        var stats = GetCategoryStats();
+        if (!stats.Any()) return "conic-gradient(#3a3a3c 0% 100%)";
+
+        var total = stats.Sum(s => s.Value);
+        string gradient = "conic-gradient(";
+        decimal currentPercent = 0;
+        int colorIndex = 0;
+        string[] colors = { "#ff9500", "#007aff", "#34c759", "#ff3b30", "#5856d6", "#ffcc00" };
+
+        foreach (var stat in stats)
+        {
+            decimal percent = (stat.Value / total) * 100;
+            decimal nextPercent = currentPercent + percent;
+            string color = colors[colorIndex % colors.Length];
+
+            gradient += $"{color} {currentPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}% {nextPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%, ";
+            currentPercent = nextPercent;
+            colorIndex++;
+        }
+        return gradient.TrimEnd(',', ' ') + ")";
     }
 
     private async Task AddTransaction()
