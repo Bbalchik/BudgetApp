@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,8 +13,8 @@ public class BudgetService : IBudgetService
     private readonly string _filePath = "budget_data.json";
     private readonly string _limitsPath = "limits_data.json";
 
-    private List<Transaction> _transactions = new List<Transaction>();
-    private Dictionary<string, decimal> _categoryLimits = new Dictionary<string, decimal>();
+    private List<Transaction> _transactions = new();
+    private Dictionary<string, decimal> _categoryLimits = new();
 
     public async Task<List<Transaction>> GetTransactionsAsync()
     {

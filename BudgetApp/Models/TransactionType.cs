@@ -1,7 +1,7 @@
-﻿namespace BudgetApp.Models;
+namespace BudgetApp.Models;
 
 public enum TransactionType
 {
-    Income,  
-    Expense  
+    Income,
+    Expense
 }

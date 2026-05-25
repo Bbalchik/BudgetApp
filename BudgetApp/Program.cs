@@ -3,16 +3,14 @@ using BudgetApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Реєстрація сервісу ДО builder.Build()
 builder.Services.AddSingleton<IBudgetService, BudgetService>();
+builder.Services.AddSingleton<IBudgetAnalyzer, BudgetAnalyzer>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);

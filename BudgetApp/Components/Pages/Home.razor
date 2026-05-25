@@ -1,254 +1,352 @@
-﻿@page "/"
+@page "/"
 @rendermode InteractiveServer
 @using BudgetApp.Models
 @using BudgetApp.Services
 @inject IBudgetService BudgetService
+@inject IBudgetAnalyzer Analyzer
 
-<PageTitle>Статистика фінансів</PageTitle>
+<PageTitle>Аналіз Бюджету</PageTitle>
 
-<div class="dashboard-container">
+<div class="dashboard">
 
-    <div class="mono-header">
-        <div class="header-titles">
-            <h2>Статистика</h2>
-            <p class="date-range">@GetPeriodText() <span class="calendar-icon">📅</span></p>
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">₴</span>
+            <span class="brand-name">БюджетАналіз</span>
         </div>
-    </div>
 
-    <div class="period-tabs">
-        <button class="period-tab @(selectedPeriod == Period.Day ? "active" : "")" @onclick="() => SetPeriod(Period.Day)">День</button>
-        <button class="period-tab @(selectedPeriod == Period.Week ? "active" : "")" @onclick="() => SetPeriod(Period.Week)">Тиж</button>
-        <button class="period-tab @(selectedPeriod == Period.Month ? "active" : "")" @onclick="() => SetPeriod(Period.Month)">Міс</button>
-    </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item @(activeTab == TransactionType.Expense ? "active expense-active" : "")"
+                    @onclick="() => SetTab(TransactionType.Expense)">
+                <span class="nav-icon">📤</span>
+                <span>Витрати</span>
+            </button>
+            <button class="nav-item @(activeTab == TransactionType.Income ? "active income-active" : "")"
+                    @onclick="() => SetTab(TransactionType.Income)">
+                <span class="nav-icon">📥</span>
+                <span>Надходження</span>
+            </button>
+        </nav>
 
-    <div class="amount-header">
-        <div class="icon-circle-large @(activeTab == TransactionType.Income ? "bg-income" : "bg-expense")">
-            @(activeTab == TransactionType.Income ? "↙" : "↗")
-        </div>
-        <div class="currency-badge">UAH</div>
-    </div>
-
-    <h2 class="main-amount" style="margin-bottom: 20px;">
-        @(activeTab == TransactionType.Income ? "Надходження" : "Витрати")
-    </h2>
-
-    <div class="tabs">
-        <button class="tab @(activeTab == TransactionType.Expense ? "active" : "")"
-                @onclick="() => SetTab(TransactionType.Expense)">
-            Витрати
-        </button>
-        <button class="tab @(activeTab == TransactionType.Income ? "active" : "")"
-                @onclick="() => SetTab(TransactionType.Income)">
-            Надходження
-        </button>
-    </div>
-
-    <div class="forecast-panel">
-        <div class="forecast-item">
-            <span class="emoji-icon">⚖️</span>
-            <div>
-                <small>Співвідношення</small>
-                <strong>@GetRatio()</strong>
+        <div class="sidebar-period">
+            <p class="sidebar-section-label">ЗВІТНИЙ ПЕРІОД</p>
+            <div class="period-btn-group">
+                <button class="period-btn @(selectedPeriod == ReportPeriod.Day ? "active" : "")"
+                        @onclick="() => SetPeriod(ReportPeriod.Day)">День</button>
+                <button class="period-btn @(selectedPeriod == ReportPeriod.Week ? "active" : "")"
+                        @onclick="() => SetPeriod(ReportPeriod.Week)">Тиждень</button>
+                <button class="period-btn @(selectedPeriod == ReportPeriod.Month ? "active" : "")"
+                        @onclick="() => SetPeriod(ReportPeriod.Month)">Місяць</button>
             </div>
         </div>
-        @if (selectedPeriod == Period.Month && activeTab == TransactionType.Expense)
-        {
-            <div class="forecast-item">
-                <span class="emoji-icon">🔮</span>
-                <div>
-                    <small>Прогноз на місяць</small>
-                    <strong>@GetForecast()</strong>
+
+        <div class="sidebar-balance">
+            <p class="sidebar-section-label">БАЛАНС МІСЯЦЯ</p>
+            @if (report != null)
+            {
+                <div class="balance-amount @(report.Balance >= 0 ? "positive" : "negative")">
+                    @(report.Balance >= 0 ? "+" : "")@report.Balance.ToString("N0") ₴
                 </div>
-            </div>
-        }
-    </div>
-
-    <div class="mono-summary">
-        <div class="tx-count">
-            🤘 Усього ви зробили @FilteredTransactions.Count() транзакцій
-        </div>
-
-        <div class="mono-grid">
-            <div class="grid-item">
-                <div class="icon-circle">⊞</div>
-                <h3>@GetUniqueCategoriesCount()</h3>
-                <p>Категорій</p>
-            </div>
-            <div class="grid-item">
-                <div class="icon-circle">#</div>
-                <h3>0</h3>
-                <p>Тегів</p>
-            </div>
-        </div>
-    </div>
-
-    @if (FilteredTransactions.Any())
-    {
-        <div class="analytics-section">
-            <div class="donut-wrapper">
-                <div class="donut-chart" style="background: @GetChartGradient()">
-                    <div class="donut-inner">
-                        <span>@BudgetService.CalculateTotal(FilteredTransactions)</span>
-                        <small>UAH</small>
-                    </div>
+                <div class="balance-row">
+                    <span class="balance-label income-dot">Доходи</span>
+                    <span class="income-text">+@report.TotalIncome.ToString("N0") ₴</span>
                 </div>
-            </div>
+                <div class="balance-row">
+                    <span class="balance-label expense-dot">Витрати</span>
+                    <span class="expense-text">-@report.TotalExpenses.ToString("N0") ₴</span>
+                </div>
+            }
+        </div>
+    </aside>
 
-            <div class="stats-list">
-                @{
-                    var stats = BudgetService.GetCategoryStats(FilteredTransactions);
-                    var total = BudgetService.CalculateTotal(FilteredTransactions);
-                }
-                @foreach (var stat in stats)
+    <main class="main-content">
+
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="topbar-title">
+                    @(activeTab == TransactionType.Expense ? "Витрати" : "Надходження")
+                </h1>
+                <span class="topbar-period">📅 @GetPeriodText()</span>
+            </div>
+            <div class="topbar-right">
+                @if (report != null)
                 {
-                    var percent = total > 0 ? (stat.Value / total) * 100 : 0;
-                    var width = percent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-                    var limitCheck = CheckLimit(stat.Key, stat.Value);
+                    <div class="topbar-stat">
+                        <span class="topbar-stat-label">Транзакцій</span>
+                        <span class="topbar-stat-value">@GetFilteredTransactions().Count()</span>
+                    </div>
+                    <div class="topbar-stat">
+                        <span class="topbar-stat-label">Категорій</span>
+                        <span class="topbar-stat-value">@GetFilteredTransactions().Select(t => t.Category).Distinct().Count()</span>
+                    </div>
+                    <div class="topbar-stat">
+                        <span class="topbar-stat-label">Сума</span>
+                        <span class="topbar-stat-value highlight">
+                            @BudgetService.CalculateTotal(GetFilteredTransactions()).ToString("N0") ₴
+                        </span>
+                    </div>
+                }
+            </div>
+        </header>
 
-                    <div class="stat-item @(limitCheck.IsExceeded ? "alert-danger" : (limitCheck.IsNearing ? "alert-warning" : ""))">
-                        <div class="stat-header">
-                            <span class="stat-category-name">@stat.Key</span>
-                            <span class="stat-category-sum">
-                                @stat.Value ₴
-                                @if (limitCheck.Limit > 0)
-                                {
-                                    <span class="limit-text">/ @limitCheck.Limit ₴</span>
-                                }
+        <div class="content-grid">
+
+            <section class="panel chart-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Розподіл по категоріям</h2>
+                </div>
+
+                @{
+                    var filteredTx = GetFilteredTransactions().ToList();
+                    var stats = BudgetService.GetCategoryStats(filteredTx);
+                    var total = BudgetService.CalculateTotal(filteredTx);
+                }
+
+                @if (stats.Any())
+                {
+                    <div class="donut-container">
+                        <div class="donut-chart" style="background: @Analyzer.BuildDonutGradient(stats, total)">
+                            <div class="donut-inner">
+                                <span class="donut-amount">@total.ToString("N0")</span>
+                                <span class="donut-currency">UAH</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="category-legend">
+                        @{int ci = 0;}
+                        @foreach (var stat in stats)
+                        {
+                            decimal pct = total > 0 ? Math.Round((stat.Value / total) * 100, 1) : 0;
+                            string[] colors = { "#ff9f43", "#54a0ff", "#5f27cd", "#00d2d3", "#ff6b6b", "#1dd1a1", "#feca57", "#48dbfb" };
+                            string color = colors[ci % colors.Length];
+                            var limitCheck = Analyzer.CheckLimit(stat.Key, stat.Value, currentLimits);
+                            <div class="legend-item @(limitCheck.IsExceeded ? "legend-danger" : limitCheck.IsNearing ? "legend-warning" : "")">
+                                <div class="legend-left">
+                                    <span class="legend-dot" style="background: @color"></span>
+                                    <div class="legend-info">
+                                        <span class="legend-name">@stat.Key</span>
+                                        @if (limitCheck.IsExceeded && activeTab == TransactionType.Expense)
+                                        {
+                                            <span class="legend-alert danger">⚠ Ліміт вичерпано</span>
+                                        }
+                                        else if (limitCheck.IsNearing && activeTab == TransactionType.Expense)
+                                        {
+                                            <span class="legend-alert warning">⚠ Майже вичерпано</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="legend-right">
+                                    <span class="legend-amount">@stat.Value.ToString("N0") ₴</span>
+                                    <span class="legend-pct">@pct%</span>
+                                </div>
+                            </div>
+                            <div class="legend-progress-bg">
+                                <div class="legend-progress-fill" style="width: @pct%; background: @color"></div>
+                            </div>
+                            ci++;
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <span class="empty-icon">📊</span>
+                        <p>Немає даних за обраний період</p>
+                    </div>
+                }
+            </section>
+
+            <section class="panel forecast-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Прогноз та аналіз</h2>
+                </div>
+
+                @if (report != null)
+                {
+                    <div class="ratio-card">
+                        <div class="ratio-icon">⚖️</div>
+                        <div class="ratio-info">
+                            <span class="ratio-label">Витрати від доходу</span>
+                            <span class="ratio-value @(report.ExpenseToIncomeRatio > 80 ? "danger-text" : report.ExpenseToIncomeRatio > 60 ? "warning-text" : "safe-text")">
+                                @report.ExpenseToIncomeRatio%
                             </span>
                         </div>
-
-                        @if (limitCheck.IsExceeded && activeTab == TransactionType.Expense)
-                        {
-                            <div class="alert-message">⚠️ Увага! Ліміт вичерпано.</div>
-                        }
-                        else if (limitCheck.IsNearing && activeTab == TransactionType.Expense)
-                        {
-                            <div class="alert-message warning">⚠️ Майже вичерпано (залишилось менше 20%).</div>
-                        }
-
-                        <div class="progress-bg">
-                            <div class="progress-fill @(activeTab == TransactionType.Income ? "bg-income" : "bg-expense")"
-                                 style="width: @(width)%"></div>
+                        <div class="ratio-bar-bg">
+                            <div class="ratio-bar-fill @(report.ExpenseToIncomeRatio > 80 ? "bar-danger" : report.ExpenseToIncomeRatio > 60 ? "bar-warning" : "bar-safe")"
+                                 style="width: @(Math.Min((double)report.ExpenseToIncomeRatio, 100))%"></div>
                         </div>
                     </div>
+
+                    @if (report.Forecast != null && selectedPeriod == ReportPeriod.Month)
+                    {
+                        <div class="forecast-cards">
+                            <div class="forecast-card">
+                                <span class="fc-icon">🔮</span>
+                                <div>
+                                    <span class="fc-label">Прогноз витрат</span>
+                                    <span class="fc-value expense-text">~@report.Forecast.ProjectedMonthlyExpenses.ToString("N0") ₴</span>
+                                </div>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-icon">📈</span>
+                                <div>
+                                    <span class="fc-label">Прогноз доходів</span>
+                                    <span class="fc-value income-text">~@report.Forecast.ProjectedMonthlyIncome.ToString("N0") ₴</span>
+                                </div>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-icon">💰</span>
+                                <div>
+                                    <span class="fc-label">Прогнозований баланс</span>
+                                    <span class="fc-value @(report.Forecast.ProjectedBalance >= 0 ? "income-text" : "expense-text")">
+                                        ~@report.Forecast.ProjectedBalance.ToString("N0") ₴
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="forecast-card">
+                                <span class="fc-icon">📅</span>
+                                <div>
+                                    <span class="fc-label">Середній день витрат</span>
+                                    <span class="fc-value">@report.Forecast.DailyAverageExpense.ToString("N0") ₴/день</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (activeTab == TransactionType.Expense)
+                    {
+                        <div class="limits-section">
+                            <button class="toggle-limits-btn" @onclick="ToggleLimits">
+                                <span>⚙️ Налаштування лімітів</span>
+                                <span class="chevron @(showLimits ? "open" : "")">▼</span>
+                            </button>
+
+                            @if (showLimits)
+                            {
+                                <div class="limit-form slide-in">
+                                    <select class="form-select" @bind="limitCategory">
+                                        @foreach (var cat in expenseCategories)
+                                        {
+                                            <option value="@cat">@cat</option>
+                                        }
+                                    </select>
+                                    <div class="limit-input-row">
+                                        <input class="form-input" @bind="limitAmount" type="number" min="0" placeholder="Ліміт (0 — прибрати)" />
+                                        <button class="btn-primary" @onclick="SaveLimit">Зберегти</button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
                 }
-            </div>
-        </div>
-    }
+            </section>
 
-    @if (activeTab == TransactionType.Expense)
-    {
-        <div class="settings-panel">
-            <button class="toggle-limits-btn" @onclick="ToggleLimits">
-                <span>⚙️ Налаштувати ліміти витрат</span>
-                <span>@(showLimits ? "▲" : "▼")</span>
-            </button>
+            <section class="panel form-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        @(editingTransactionId != null ? "✏️ Редагування" : "➕ Новий запис")
+                    </h2>
+                </div>
 
-            @if (showLimits)
-            {
-                <div class="limit-form slide-down">
-                    <select class="form-select" @bind="limitCategory">
-                        @foreach (var cat in expenseCategories)
+                <div class="transaction-form">
+                    <input class="form-input" @bind="newDescription" placeholder="Назва (Сільпо, зарплата...)" />
+                    <select class="form-select" @bind="newCategory">
+                        @foreach (var cat in currentCategories)
                         {
                             <option value="@cat">@cat</option>
                         }
                     </select>
-                    <input class="form-input" @bind="limitAmount" type="number" min="0" placeholder="Сума (0 - прибрати)" />
-                    <button class="btn-submit" style="background-color: #0a84ff; color: white; width: auto;" @onclick="SaveLimit">Оновити</button>
+                    <input class="form-input" @bind="newAmount" type="number" min="1" placeholder="Сума в гривнях" />
+                    <div class="form-actions">
+                        <button class="btn-primary" @onclick="SaveTransaction">
+                            @(editingTransactionId == null ? "Додати" : "Зберегти")
+                        </button>
+                        @if (editingTransactionId != null)
+                        {
+                            <button class="btn-secondary" @onclick="CancelEdit">Скасувати</button>
+                        }
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <section class="panel transactions-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Список транзакцій</h2>
+                <span class="panel-badge">@GetFilteredTransactions().Count()</span>
+            </div>
+
+            @if (GetFilteredTransactions().Any())
+            {
+                <div class="tx-grid">
+                    @foreach (var t in GetFilteredTransactions())
+                    {
+                        <div class="tx-card">
+                            <div class="tx-category-badge">@t.Category</div>
+                            <div class="tx-desc">@t.Description</div>
+                            <div class="tx-date">@t.Date.ToString("dd.MM.yyyy HH:mm")</div>
+                            <div class="tx-amount @(t.Type == TransactionType.Income ? "income-text" : "expense-text")">
+                                @(t.Type == TransactionType.Income ? "+" : "-")@t.Amount.ToString("N0") ₴
+                            </div>
+                            <div class="tx-actions">
+                                <button class="btn-icon" @onclick="() => StartEdit(t)" title="Редагувати">✏️</button>
+                                <button class="btn-icon btn-icon-delete" @onclick="() => DeleteTransaction(t.Id)" title="Видалити">🗑</button>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
-        </div>
-    }
-
-    <div class="transaction-form @(editingTransactionId != null ? "editing-mode" : "")">
-        @if (editingTransactionId != null)
-        {
-            <div class="edit-badge" style="width: 100%;">Редагування запису</div>
-        }
-
-        <input class="form-input" @bind="newDescription" placeholder="Назва (Сільпо, АТБ...)" />
-
-        <select class="form-select" @bind="newCategory">
-            @foreach (var cat in currentCategories)
+            else
             {
-                <option value="@cat">@cat</option>
+                <div class="empty-state">
+                    <span class="empty-icon">📝</span>
+                    <p>Немає транзакцій за обраний період</p>
+                </div>
             }
-        </select>
+        </section>
 
-        <input class="form-input" @bind="newAmount" type="number" min="1" placeholder="Сума" />
-
-        <div class="form-buttons">
-            <button class="btn-submit" @onclick="SaveTransaction">@(editingTransactionId == null ? "Додати" : "Зберегти")</button>
-            @if (editingTransactionId != null)
-            {
-                <button class="btn-cancel" @onclick="CancelEdit">Скасувати</button>
-            }
-        </div>
-    </div>
-
-    @if (transactions != null && FilteredTransactions.Any())
-    {
-        <ul class="transaction-list">
-            @foreach (var t in FilteredTransactions)
-            {
-                <li class="transaction-item">
-                    <div class="item-info">
-                        <span class="transaction-category">@t.Category</span>
-                        <strong class="transaction-desc">@t.Description</strong>
-                        <span class="transaction-date">@t.Date.ToString("dd.MM.yyyy HH:mm")</span>
-                    </div>
-                    <div class="actions">
-                        <span class="transaction-amount">
-                            @t.Amount ₴
-                        </span>
-                        <button class="btn-icon-action" @onclick="() => StartEdit(t)">✏️</button>
-                        <button class="btn-delete" @onclick="() => DeleteTransaction(t.Id)">🗑</button>
-                    </div>
-                </li>
-            }
-        </ul>
-    }
+    </main>
 </div>
 
 @code {
     private List<Transaction> transactions = new();
     private Dictionary<string, decimal> currentLimits = new();
+    private BudgetReport? report;
 
-    private enum Period { Day, Week, Month }
-    private Period selectedPeriod = Period.Month;
+    private ReportPeriod selectedPeriod = ReportPeriod.Month;
     private TransactionType activeTab = TransactionType.Expense;
 
     private string newDescription = "";
     private decimal newAmount = 0;
-    private string newCategory = "🛒 Продукти харчування";
+    private string newCategory = "";
     private Guid? editingTransactionId = null;
 
     private bool showLimits = false;
-    private string limitCategory = "🛒 Продукти харчування";
+    private string limitCategory = "";
     private decimal limitAmount = 0;
 
-    private List<string> expenseCategories = new() { "🛒 Продукти харчування", "🏠 Комунальні послуги", "💊 Ліки", "🚕 Транспорт (пальне/квитки)", "📦 Інше" };
-    private List<string> incomeCategories = new() { "💰 Зарплата", "📈 Прибуток", "📦 Інше" };
-    private List<string> currentCategories => activeTab == TransactionType.Expense ? expenseCategories : incomeCategories;
-
-    private IEnumerable<Transaction> FilteredTransactions => transactions.Where(t =>
+    private List<string> expenseCategories = new()
     {
-        var today = DateTime.Now.Date;
-        bool dateMatch = false;
+        "🛒 Продукти харчування",
+        "🏠 Комунальні послуги",
+        "💊 Ліки",
+        "🚕 Транспорт (пальне/квитки)",
+        "🎭 Розваги",
+        "👗 Одяг та взуття",
+        "📦 Інше"
+    };
 
-        if (selectedPeriod == Period.Day)
-            dateMatch = t.Date.Date == today;
-        else if (selectedPeriod == Period.Week)
-        {
-            var currentDayOfWeek = (int)today.DayOfWeek == 0 ? 7 : (int)today.DayOfWeek;
-            var startOfWeek = today.AddDays(-(currentDayOfWeek - 1));
-            dateMatch = t.Date.Date >= startOfWeek && t.Date.Date <= startOfWeek.AddDays(6);
-        }
-        else if (selectedPeriod == Period.Month)
-            dateMatch = t.Date.Month == today.Month && t.Date.Year == today.Year;
+    private List<string> incomeCategories = new()
+    {
+        "💰 Зарплата",
+        "📈 Підробіток",
+        "🎁 Подарунок",
+        "📦 Інше"
+    };
 
-        return dateMatch && t.Type == activeTab;
-    }).OrderByDescending(t => t.Date);
+    private List<string> currentCategories => activeTab == TransactionType.Expense ? expenseCategories : incomeCategories;
 
     protected override async Task OnInitializedAsync()
     {
@@ -260,20 +358,19 @@
     {
         transactions = await BudgetService.GetTransactionsAsync();
         currentLimits = await BudgetService.GetLimitsAsync();
+        report = Analyzer.BuildReport(transactions, selectedPeriod);
     }
 
-    private void ToggleLimits() { showLimits = !showLimits; }
-
-    private (decimal Limit, bool IsExceeded, bool IsNearing) CheckLimit(string category, decimal spentAmount)
+    private IEnumerable<Transaction> GetFilteredTransactions()
     {
-        if (currentLimits.TryGetValue(category, out decimal limit) && limit > 0)
-        {
-            bool isExceeded = spentAmount >= limit;
-            bool isNearing = spentAmount >= limit * 0.8m && spentAmount < limit;
-            return (limit, isExceeded, isNearing);
-        }
-        return (0, false, false);
+        return report == null
+            ? Enumerable.Empty<Transaction>()
+            : transactions
+                .Where(t => t.Type == activeTab && t.Date.Date >= report.StartDate && t.Date.Date <= report.EndDate)
+                .OrderByDescending(t => t.Date);
     }
+
+    private void ToggleLimits() => showLimits = !showLimits;
 
     private async Task SaveLimit()
     {
@@ -284,78 +381,37 @@
         showLimits = false;
     }
 
-    private void SetPeriod(Period p) { selectedPeriod = p; CancelEdit(); showLimits = false; }
-    private void SetTab(TransactionType type) { activeTab = type; UpdateDefaultCategory(); CancelEdit(); showLimits = false; }
-    private void UpdateDefaultCategory() { newCategory = currentCategories.First(); limitCategory = expenseCategories.First(); }
-    private int GetUniqueCategoriesCount() { return FilteredTransactions.Select(t => t.Category).Distinct().Count(); }
+    private void SetPeriod(ReportPeriod p)
+    {
+        selectedPeriod = p;
+        report = Analyzer.BuildReport(transactions, selectedPeriod);
+        CancelEdit();
+        showLimits = false;
+    }
+
+    private void SetTab(TransactionType type)
+    {
+        activeTab = type;
+        UpdateDefaultCategory();
+        CancelEdit();
+        showLimits = false;
+    }
+
+    private void UpdateDefaultCategory()
+    {
+        newCategory = currentCategories.First();
+        limitCategory = expenseCategories.First();
+    }
 
     private string GetPeriodText()
     {
-        if (selectedPeriod == Period.Day) return "Сьогодні: " + DateTime.Now.ToString("dd.MM.yyyy");
-        if (selectedPeriod == Period.Week) return "Поточний тиждень";
-        return $"01 {GetMonthName(DateTime.Now.Month)}. - {DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month)} {GetMonthName(DateTime.Now.Month)}. {DateTime.Now.Year}";
-    }
-
-    private string GetMonthName(int month)
-    {
-        string[] months = { "січ", "лют", "бер", "квіт", "трав", "черв", "лип", "серп", "вер", "жовт", "лист", "груд" };
-        return months[month - 1];
-    }
-
-    private string GetRatio()
-    {
-        var allInPeriod = transactions.Where(t => FilteredTransactions.Any(ft => ft.Id == t.Id) || (t.Type != activeTab && IsInCurrentPeriod(t.Date)));
-        var inc = allInPeriod.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
-        var exp = allInPeriod.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
-
-        if (inc == 0) return "Немає прибутку";
-        var ratio = (exp / inc) * 100;
-        return $"{Math.Round(ratio)}% від доходу";
-    }
-
-    private string GetForecast()
-    {
-        var total = BudgetService.CalculateTotal(FilteredTransactions);
-        var currentDay = DateTime.Now.Day;
-        var daysInMonth = DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month);
-        if (currentDay == 0 || total == 0) return "0 UAH";
-
-        var projected = (total / currentDay) * daysInMonth;
-        return $"~{Math.Round(projected)} UAH";
-    }
-
-    private bool IsInCurrentPeriod(DateTime date)
-    {
-        var today = DateTime.Now.Date;
-        if (selectedPeriod == Period.Day) return date.Date == today;
-        if (selectedPeriod == Period.Month) return date.Month == today.Month && date.Year == today.Year;
-        var currentDayOfWeek = (int)today.DayOfWeek == 0 ? 7 : (int)today.DayOfWeek;
-        var startOfWeek = today.AddDays(-(currentDayOfWeek - 1));
-        return date.Date >= startOfWeek && date.Date <= startOfWeek.AddDays(6);
-    }
-
-    private string GetChartGradient()
-    {
-        var stats = BudgetService.GetCategoryStats(FilteredTransactions);
-        if (!stats.Any()) return "conic-gradient(#3a3a3c 0% 100%)";
-
-        var total = BudgetService.CalculateTotal(FilteredTransactions);
-        string gradient = "conic-gradient(";
-        decimal currentPercent = 0;
-        int colorIndex = 0;
-        string[] colors = { "#ff9500", "#007aff", "#34c759", "#ff3b30", "#5856d6", "#ffcc00" };
-
-        foreach (var stat in stats)
-        {
-            decimal percent = (stat.Value / total) * 100;
-            decimal nextPercent = currentPercent + percent;
-            string color = colors[colorIndex % colors.Length];
-
-            gradient += $"{color} {currentPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}% {nextPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%, ";
-            currentPercent = nextPercent;
-            colorIndex++;
-        }
-        return gradient.TrimEnd(',', ' ') + ")";
+        if (report == null) return "";
+        if (selectedPeriod == ReportPeriod.Day)
+            return DateTime.Now.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("uk-UA"));
+        if (selectedPeriod == ReportPeriod.Week)
+            return $"{report.StartDate:dd.MM} — {report.EndDate:dd.MM.yyyy}";
+        string[] months = { "Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень" };
+        return $"{months[DateTime.Now.Month - 1]} {DateTime.Now.Year}";
     }
 
     private async Task SaveTransaction()
@@ -363,14 +419,54 @@
         if (string.IsNullOrWhiteSpace(newDescription) || newAmount <= 0) return;
 
         if (editingTransactionId == null)
-            await BudgetService.AddTransactionAsync(new Transaction { Description = newDescription, Amount = newAmount, Date = DateTime.Now, Type = activeTab, Category = newCategory });
+        {
+            await BudgetService.AddTransactionAsync(new Transaction
+            {
+                Description = newDescription,
+                Amount = newAmount,
+                Date = DateTime.Now,
+                Type = activeTab,
+                Category = newCategory
+            });
+        }
         else
-            await BudgetService.UpdateTransactionAsync(new Transaction { Id = editingTransactionId.Value, Description = newDescription, Amount = newAmount, Type = activeTab, Category = newCategory });
+        {
+            await BudgetService.UpdateTransactionAsync(new Transaction
+            {
+                Id = editingTransactionId.Value,
+                Description = newDescription,
+                Amount = newAmount,
+                Type = activeTab,
+                Category = newCategory
+            });
+        }
 
-        newDescription = ""; newAmount = 0; editingTransactionId = null; await LoadData();
+        newDescription = "";
+        newAmount = 0;
+        editingTransactionId = null;
+        await LoadData();
     }
 
-    private void StartEdit(Transaction t) { editingTransactionId = t.Id; newDescription = t.Description; newAmount = t.Amount; newCategory = t.Category; }
-    private void CancelEdit() { editingTransactionId = null; newDescription = ""; newAmount = 0; UpdateDefaultCategory(); }
-    private async Task DeleteTransaction(Guid id) { await BudgetService.DeleteTransactionAsync(id); await LoadData(); }
+    private void StartEdit(Transaction t)
+    {
+        editingTransactionId = t.Id;
+        newDescription = t.Description;
+        newAmount = t.Amount;
+        newCategory = t.Category;
+        activeTab = t.Type;
+    }
+
+    private void CancelEdit()
+    {
+        editingTransactionId = null;
+        newDescription = "";
+        newAmount = 0;
+        UpdateDefaultCategory();
+    }
+
+    private async Task DeleteTransaction(Guid id)
+    {
+        await BudgetService.DeleteTransactionAsync(id);
+        await LoadData();
+    }
 }
