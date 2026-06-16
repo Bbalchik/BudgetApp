@@ -61,7 +61,7 @@ public class BudgetAnalyzer : IBudgetAnalyzer
         int currentDay = DateTime.Now.Day;
         int daysInMonth = DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month);
 
-        if (currentDay == 0) return new ForecastResult();
+        if (currentDay == 0) return new ForecastResult(0, 0, 0, 0);
 
         decimal totalExp = list.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount);
         decimal totalInc = list.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount);
@@ -69,13 +69,12 @@ public class BudgetAnalyzer : IBudgetAnalyzer
         decimal dailyExp = totalExp / currentDay;
         decimal dailyInc = totalInc > 0 ? totalInc / currentDay : 0;
 
-        return new ForecastResult
-        {
-            DailyAverageExpense = Math.Round(dailyExp, 2),
-            DailyAverageIncome = Math.Round(dailyInc, 2),
-            ProjectedMonthlyExpenses = Math.Round(dailyExp * daysInMonth, 2),
-            ProjectedMonthlyIncome = Math.Round(dailyInc * daysInMonth, 2)
-        };
+        return new ForecastResult(
+            Math.Round(dailyExp * daysInMonth, 2),
+            Math.Round(dailyInc * daysInMonth, 2),
+            Math.Round(dailyExp, 2),
+            Math.Round(dailyInc, 2)
+        );
     }
 
     public LimitCheckResult CheckLimit(string category, decimal spentAmount, Dictionary<string, decimal> limits)
